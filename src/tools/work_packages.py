@@ -518,6 +518,11 @@ async def update_work_package(
         start_date, due_date, percentage_done, version_id: Optional fields; only
         provided values are applied.
 
+    Note:
+        percentage_done is read-only on some OpenProject instances (progress is
+        derived from status/work). If the instance rejects it, that field is
+        skipped and the remaining fields are still applied.
+
     Returns:
         Success message with updated work package details
     """
@@ -553,8 +558,37 @@ async def update_work_package(
         if not data:
             return format_error("No fields provided to update")
 
-        # Update work package
-        result = await client.update_work_package(work_package_id, data)
+        # Update work package. percentage_done (percentageDone) is read-only on some
+        # OpenProject instances (progress is derived from status). If the API rejects
+        # it as read-only, drop that field and retry once so the rest of the update
+        # still applies rather than failing the whole request.
+        readonly_note = ""
+        try:
+            result = await client.update_work_package(work_package_id, data)
+        except Exception as exc:
+            msg = str(exc)
+            pct_read_only = (
+                percentage_done is not None
+                and "percentage" in msg.lower()
+                and (
+                    "readonly" in msg.lower().replace("-", "").replace(" ", "")
+                    or "not writable" in msg.lower()
+                )
+            )
+            if not pct_read_only:
+                raise
+            data.pop("percentage_done", None)
+            if not data:
+                return format_error(
+                    "percentage_done is read-only on this OpenProject instance "
+                    "(progress is derived from status), and no other fields were "
+                    "provided to update."
+                )
+            result = await client.update_work_package(work_package_id, data)
+            readonly_note = (
+                "\n⚠️ percentage_done is read-only on this instance and was "
+                "skipped; the other fields were updated."
+            )
 
         # Format success response
         wp_id = result.get("id")
@@ -581,6 +615,7 @@ async def update_work_package(
         if 'percentageDone' in result:
             text += f"**Progress**: {result['percentageDone']}%\n"
 
+        text += readonly_note
         return text
 
     except Exception as e:
