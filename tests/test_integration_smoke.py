@@ -1,9 +1,14 @@
 """Live integration smoke test for the flattened work-package tools.
 
 Skipped by default. It exercises the real flattened payload-building end to end
-(create -> get -> update(status) -> delete) against a live OpenProject instance,
-so the change is covered beyond signatures/imports. It cleans up the work package
-it creates.
+(create -> read-back -> update(status) -> delete) against a live OpenProject
+instance, so the change is covered beyond signatures/imports. It cleans up the
+work package it creates.
+
+There is intentionally no standalone ``get_work_package`` tool in this server, so
+the read-back uses ``search_work_packages`` (which matches by subject or ID). The
+tool imports are at module top so a missing/renamed tool fails collection even
+when this test is skipped.
 
 Enable by pointing at a disposable test project with real credentials:
 
@@ -20,6 +25,13 @@ import os
 import re
 
 import pytest
+
+from src.tools.work_packages import (
+    create_work_package,
+    update_work_package,
+    search_work_packages,
+    delete_work_package,
+)
 
 SMOKE = os.getenv("OPENPROJECT_SMOKE") == "1"
 PROJECT_ID = os.getenv("OPENPROJECT_TEST_PROJECT_ID")
@@ -43,16 +55,9 @@ def _wp_id(text: str) -> int:
 
 async def test_work_package_crud_roundtrip():
     # @mcp.tool wraps the coroutine in a FunctionTool; the callable is at `.fn`.
-    from src.tools.work_packages import (
-        create_work_package,
-        update_work_package,
-        get_work_package,
-        delete_work_package,
-    )
-
     create = create_work_package.fn
     update = update_work_package.fn
-    get = get_work_package.fn
+    search = search_work_packages.fn
     delete = delete_work_package.fn
 
     created = await create(
@@ -65,8 +70,9 @@ async def test_work_package_crud_roundtrip():
     wp_id = _wp_id(created)
 
     try:
-        got = await get(wp_id)
-        assert str(wp_id) in got, got
+        # No standalone get_work_package tool exists; read back via search by id.
+        found = await search(query=str(wp_id), project_id=int(PROJECT_ID))
+        assert str(wp_id) in found, found
 
         kwargs = {"work_package_id": wp_id, "subject": "[smoke] updated subject"}
         if STATUS_ID:
