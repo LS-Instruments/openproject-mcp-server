@@ -63,3 +63,33 @@ async def test_non_readonly_error_is_not_swallowed(monkeypatch):
     )
 
     assert "failed to update" in result.lower()
+
+
+async def test_percentage_readonly_detected_via_identifier_when_localized(monkeypatch):
+    # Even with a translated/reworded human message, detection must still fire off
+    # the stable v3 errorIdentifier + attribute name in the 422 body.
+    class _LocalizedClient:
+        def __init__(self):
+            self.calls = []
+
+        async def update_work_package(self, wp_id, data):
+            self.calls.append(dict(data))
+            if "percentage_done" in data:
+                raise Exception(
+                    'API Error 422: {"_type":"Error","errorIdentifier":'
+                    '"urn:openproject-org:api:v3:errors:PropertyIsReadOnly",'
+                    '"message":"Fertigstellungsgrad ist schreibgeschuetzt.",'
+                    '"_embedded":{"details":{"attribute":"percentageDone"}}}'
+                )
+            return {"id": wp_id, "subject": "S", "_embedded": {}}
+
+    fake = _LocalizedClient()
+    monkeypatch.setattr(wp, "get_client", lambda: fake)
+
+    result = await wp.update_work_package.fn(
+        work_package_id=1, status_id=2, percentage_done=50
+    )
+
+    assert "updated successfully" in result.lower()
+    assert len(fake.calls) == 2
+    assert "percentage_done" not in fake.calls[1]
