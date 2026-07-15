@@ -891,6 +891,39 @@ Delete an attachment.
 
 **Parameters:**
 - `attachment_id` (integer, required): The attachment ID
+#### 46. `list_sprints`
+List sprints, optionally scoped to a project (OpenProject 17.3+, Backlogs module).
+
+**Parameters:**
+- `project_id` (integer, optional): List sprints for a specific project
+- `status` (string, optional): Filter by `in_planning`, `active`, or `completed`
+- `offset` (integer, optional): Pagination offset (default: 0)
+- `page_size` (integer, optional): Results per page (default: 25, max: 100)
+
+#### 47. `get_sprint`
+Get details of a single sprint by ID.
+
+**Parameters:**
+- `sprint_id` (integer, required): The sprint ID
+
+#### 48. `list_sprint_work_packages`
+List work packages assigned to a specific sprint.
+
+**Parameters:**
+- `sprint_id` (integer, required): The sprint ID
+- `project_id` (integer, optional): Narrow the search to a project
+- `active_only` (boolean, optional): Only open work packages (default: false)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
+
+#### 49. `list_backlog_work_packages`
+List work packages in the product backlog (not assigned to any sprint).
+
+**Parameters:**
+- `project_id` (integer, required): Project ID to list the backlog for
+- `type_ids` (string, optional): Comma-separated type IDs to filter by
+- `priority_ids` (string, optional): Comma-separated priority IDs to filter by
+- `active_only` (boolean, optional): Only open work packages (default: true)
+- `page_size` (integer, optional): Results per page (default: 50, max: 100)
 
 ## Development
 

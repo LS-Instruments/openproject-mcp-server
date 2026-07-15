@@ -82,7 +82,10 @@ try:
     # Phase 3: Attachments (5 tools)
     from src.tools import attachments      # 5 tools: list, get, download, upload, delete
 
-    logger.info("✅ All 54 tool modules loaded successfully")
+    # Sprints & backlog (4 read-only tools; OpenProject 17.3+)
+    from src.tools import sprints          # 4 tools: list_sprints, get_sprint, list_sprint_work_packages, list_backlog_work_packages
+
+    logger.info("✅ All tool modules loaded successfully")
 except ImportError as e:
     logger.warning(f"⚠️  Some tool modules failed to import: {e}")
     raise

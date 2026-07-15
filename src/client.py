@@ -1614,3 +1614,64 @@ class OpenProjectClient:
                 logger.error(f"Network error: {str(e)}")
                 raise Exception(f"Network error accessing {url}: {str(e)}")
 
+    # ------------------------------------------------------------------
+    # Sprints (OpenProject 17.3+; requires the Backlogs module)
+    # ------------------------------------------------------------------
+
+    async def get_sprints(
+        self,
+        project_id: Optional[int] = None,
+        filters: Optional[str] = None,
+        offset: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> Dict:
+        """
+        Retrieve sprints, optionally scoped to a project.
+
+        Args:
+            project_id: Optional project ID to scope the listing
+            filters: Optional JSON-encoded filter string
+            offset: Optional starting index for pagination
+            page_size: Optional number of results per page
+
+        Returns:
+            Dict: API response containing sprints
+        """
+        if project_id:
+            endpoint = f"/projects/{project_id}/sprints"
+        else:
+            endpoint = "/sprints"
+
+        query_params = []
+        if filters:
+            query_params.append(f"filters={quote(filters)}")
+        if offset is not None:
+            query_params.append(f"offset={offset}")
+        if page_size is not None:
+            query_params.append(f"pageSize={page_size}")
+
+        if query_params:
+            endpoint += "?" + "&".join(query_params)
+
+        result = await self._request("GET", endpoint)
+
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+
+        return result
+
+    async def get_sprint(self, sprint_id: int) -> Dict:
+        """
+        Retrieve a single sprint by ID.
+
+        Args:
+            sprint_id: The sprint ID
+
+        Returns:
+            Dict: Sprint data
+        """
+        return await self._request("GET", f"/sprints/{sprint_id}")
+
