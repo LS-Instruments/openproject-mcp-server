@@ -14,6 +14,13 @@ class CreateTimeEntryInput(CoercibleModel):
     spent_on: str = Field(..., description="Date spent (YYYY-MM-DD)")
     activity_id: int = Field(..., description="Activity ID (1=Management, 2=Specification, 3=Development, 4=Testing)", gt=0)
     comment: Optional[str] = Field(None, description="Optional comment")
+    user_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Log the time on behalf of this user (defaults to the "
+        "authenticated user). Requires the 'Log time for other users' project "
+        "permission; the target user must be a project member.",
+    )
 
 
 class UpdateTimeEntryInput(CoercibleModel):
@@ -106,7 +113,13 @@ async def create_time_entry(input: CreateTimeEntryInput) -> str:
     - 4: Testing
 
     Args:
-        input: Time entry data including work_package_id, hours, date, activity, and optional comment
+        input: Time entry data including work_package_id, hours, date, activity,
+            optional comment, and optional user_id (log on behalf of another user).
+
+    Note:
+        Setting user_id requires the authenticated user to hold the "Log time for
+        other users" project permission and the target to be a project member;
+        otherwise OpenProject returns a 403/422 error (surfaced as a clear message).
 
     Returns:
         Success message with created time entry details
@@ -132,6 +145,8 @@ async def create_time_entry(input: CreateTimeEntryInput) -> str:
 
         if input.comment:
             data["comment"] = input.comment
+        if input.user_id is not None:
+            data["user_id"] = input.user_id
 
         result = await client.create_time_entry(data)
 
@@ -145,6 +160,8 @@ async def create_time_entry(input: CreateTimeEntryInput) -> str:
             text += f"**Work Package**: {embedded['workPackage'].get('subject', 'Unknown')}\n"
         if "activity" in embedded:
             text += f"**Activity**: {embedded['activity'].get('name', 'Unknown')}\n"
+        if "user" in embedded:
+            text += f"**User**: {embedded['user'].get('name', 'Unknown')}\n"
 
         if result.get('comment', {}).get('raw'):
             text += f"**Comment**: {result['comment']['raw']}\n"

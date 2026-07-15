@@ -623,6 +623,7 @@ Create a new time entry.
 - `spent_on` (string, required): Date when time was spent (YYYY-MM-DD format)
 - `comment` (string, optional): Comment/description
 - `activity_id` (integer, optional): Activity ID
+- `user_id` (integer, optional): Log the time on behalf of this user (defaults to the authenticated user). Requires the authenticated user to hold the project permission **"Log time for other users"** and the target to be a project member; otherwise OpenProject returns a 403/422 error.
 
 #### 16. `update_time_entry`
 Update an existing time entry.

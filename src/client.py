@@ -629,6 +629,12 @@ class OpenProjectClient:
             payload["_links"]["activity"] = {
                 "href": f"/api/v3/time_entries/activities/{data['activity_id']}"
             }
+        if "user_id" in data:
+            if "_links" not in payload:
+                payload["_links"] = {}
+            payload["_links"]["user"] = {
+                "href": f"/api/v3/users/{data['user_id']}"
+            }
 
         return await self._request("POST", "/time_entries", payload)
 
