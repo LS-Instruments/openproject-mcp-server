@@ -1,10 +1,37 @@
 """Time entry management tools for time tracking."""
 
+import re
 from typing import Optional
 from pydantic import Field
 from src.server import mcp, get_client
 from src.utils.inputs import CoercibleModel
 from src.utils.formatting import format_success, format_error
+
+
+# OpenProject returns a time entry's ``hours`` as an ISO-8601 duration
+# string (e.g. "PT4H", "PT1H30M"), not a number.
+_ISO8601_DURATION = re.compile(
+    r"^P(?:([\d.]+)D)?(?:T(?:([\d.]+)H)?(?:([\d.]+)M)?(?:([\d.]+)S)?)?$"
+)
+
+
+def _hours_to_float(value) -> float:
+    """Convert an OpenProject duration to a number of hours.
+
+    Time-entry ``hours`` come back as an ISO-8601 duration string such as
+    ``"PT4H"`` or ``"PT1H30M"``. Returns ``0.0`` for missing/empty or
+    unparseable values so one malformed entry can't break the whole
+    listing; numeric values pass through unchanged.
+    """
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    match = _ISO8601_DURATION.match(str(value).strip())
+    if not match:
+        return 0.0
+    days, hours, minutes, seconds = (float(g) if g else 0.0 for g in match.groups())
+    return days * 24 + hours + minutes / 60 + seconds / 3600
 
 
 class CreateTimeEntryInput(CoercibleModel):
@@ -56,13 +83,28 @@ async def list_time_entries(
         import json
         filters = []
         if work_package_id:
-            filters.append({"work_package": {"operator": "=", "values": [str(work_package_id)]}})
+            # Time entries filter by work package through the generic "entity"
+            # filter (entity_type=WorkPackage + entity_id); the /time_entries
+            # query has no "work_package" filter.
+            filters.append(
+                {"entity_type": {"operator": "=", "values": ["WorkPackage"]}}
+            )
+            filters.append(
+                {"entity_id": {"operator": "=", "values": [str(work_package_id)]}}
+            )
         if user_id:
-            filters.append({"user": {"operator": "=", "values": [str(user_id)]}})
-        if from_date:
-            filters.append({"spent_on": {"operator": ">=", "values": [from_date]}})
-        if to_date:
-            filters.append({"spent_on": {"operator": "<=", "values": [to_date]}})
+            filters.append({"user_id": {"operator": "=", "values": [str(user_id)]}})
+        if from_date or to_date:
+            # spent_on is a date filter: it takes the "between" operator (<>d)
+            # with [from, to]; an empty bound leaves that side open.
+            filters.append(
+                {
+                    "spent_on": {
+                        "operator": "<>d",
+                        "values": [from_date or "", to_date or ""],
+                    }
+                }
+            )
 
         filters_json = json.dumps(filters) if filters else None
 
@@ -73,11 +115,12 @@ async def list_time_entries(
             return "No time entries found."
 
         text = f"✅ **Found {len(entries)} time entr{'y' if len(entries) == 1 else 'ies'}:**\n\n"
-        total_hours = 0
+        total_hours = 0.0
 
         for entry in entries:
+            hours = _hours_to_float(entry.get("hours"))
             text += f"**Time Entry #{entry.get('id', 'N/A')}**\n"
-            text += f"  Hours: {entry.get('hours', 0)}\n"
+            text += f"  Hours: {round(hours, 2)}\n"
             text += f"  Date: {entry.get('spentOn', 'N/A')}\n"
 
             embedded = entry.get("_embedded", {})
@@ -91,10 +134,10 @@ async def list_time_entries(
             if entry.get('comment', {}).get('raw'):
                 text += f"  Comment: {entry['comment']['raw']}\n"
 
-            total_hours += entry.get('hours', 0)
+            total_hours += hours
             text += "\n"
 
-        text += f"**Total Hours**: {total_hours}\n"
+        text += f"**Total Hours**: {round(total_hours, 2)}\n"
 
         return text
 
