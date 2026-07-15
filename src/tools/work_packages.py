@@ -1,7 +1,7 @@
 """Work package management tools - Priority CRITICAL tools for 12 users."""
 
 import json
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Dict, Any
 from pydantic import Field
 
 from src.server import mcp, get_client
@@ -451,6 +451,16 @@ async def create_work_package(
         Optional[int],
         Field(gt=0, description="Version/milestone ID to assign work package to"),
     ] = None,
+    custom_fields: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            description=(
+                'Custom fields as {"customFieldN": value}. Text/number/date '
+                "values are sent directly; list/user/version-type values use "
+                '{"href": "/api/v3/..."}.'
+            )
+        ),
+    ] = None,
 ) -> str:
     """Create a new work package (task) - CRITICAL tool for creating tasks.
 
@@ -497,6 +507,11 @@ async def create_work_package(
             data["startDate"] = start_date
         if due_date:
             data["dueDate"] = due_date
+
+        # Merge custom fields (customFieldN) into the payload data
+        if custom_fields:
+            for key, value in custom_fields.items():
+                data[key] = value
 
         # Create work package
         result = await client.create_work_package(data)
@@ -572,6 +587,16 @@ async def update_work_package(
             "otherwise push out; when False, it follows automatic scheduling."
         ),
     ] = None,
+    custom_fields: Annotated[
+        Optional[Dict[str, Any]],
+        Field(
+            description=(
+                'Custom fields as {"customFieldN": value}. Text/number/date '
+                "values are sent directly; list/user/version-type values use "
+                '{"href": "/api/v3/..."}.'
+            )
+        ),
+    ] = None,
 ) -> str:
     """Update an existing work package (task) - CRITICAL tool for updating tasks.
 
@@ -623,6 +648,11 @@ async def update_work_package(
             data["startDate"] = start_date
         if due_date is not None:
             data["dueDate"] = due_date
+
+        # Merge custom fields (customFieldN) into the payload data
+        if custom_fields:
+            for key, value in custom_fields.items():
+                data[key] = value
 
         if not data:
             return format_error("No fields provided to update")
