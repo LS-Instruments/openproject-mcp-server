@@ -483,6 +483,8 @@ class OpenProjectClient:
             }
         if "percentage_done" in data:
             payload["percentageDone"] = data["percentage_done"]
+        if "schedule_manually" in data:
+            payload["scheduleManually"] = data["schedule_manually"]
         if "parent_id" in data:
             if "_links" not in payload:
                 payload["_links"] = {}

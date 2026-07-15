@@ -563,6 +563,15 @@ async def update_work_package(
         Optional[int],
         Field(gt=0, description="Version/milestone ID to assign work package to"),
     ] = None,
+    schedule_manually: Annotated[
+        Optional[bool],
+        Field(
+            description="Switch the work package to manual scheduling. When True, "
+            "its dates are kept as given and are not shifted by its relations "
+            "(predecessors) -- needed to pin a date the dependencies would "
+            "otherwise push out; when False, it follows automatic scheduling."
+        ),
+    ] = None,
 ) -> str:
     """Update an existing work package (task) - CRITICAL tool for updating tasks.
 
@@ -573,8 +582,8 @@ async def update_work_package(
     Args:
         work_package_id: Work package to update.
         subject, description, type_id, status_id, priority_id, assignee_id,
-        start_date, due_date, percentage_done, version_id: Optional fields; only
-        provided values are applied.
+        start_date, due_date, percentage_done, version_id, schedule_manually:
+        Optional fields; only provided values are applied.
 
     Note:
         percentage_done is read-only on some OpenProject instances (progress is
@@ -606,6 +615,8 @@ async def update_work_package(
             data["percentage_done"] = percentage_done
         if version_id is not None:
             data["version_id"] = version_id
+        if schedule_manually is not None:
+            data["schedule_manually"] = schedule_manually
 
         # Add date fields (use camelCase for API)
         if start_date is not None:

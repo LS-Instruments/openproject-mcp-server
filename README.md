@@ -471,6 +471,7 @@ Update an existing work package.
 - `priority_id` (integer, optional): Priority ID
 - `assignee_id` (integer, optional): User ID to assign to
 - `percentage_done` (integer, optional): Completion percentage (0-100). **Known instance behavior:** on some OpenProject instances progress is derived from status and `percentageDone` is read-only — sending it returns HTTP 422 `PropertyIsReadOnly`. The tool detects this, skips `percentage_done`, and still applies the other fields (with a note in the response).
+- `schedule_manually` (boolean, optional): Switch the work package to manual scheduling. When `True`, its dates are pinned as given and not shifted by its relations/predecessors — needed to set a date the dependencies would otherwise reject (HTTP 422); when `False`, it follows automatic scheduling.
 
 #### 13. `delete_work_package`
 Delete a work package.
