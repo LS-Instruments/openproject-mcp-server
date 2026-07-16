@@ -26,8 +26,6 @@ os.environ.setdefault("OPENPROJECT_API_KEY", "test-key")
 
 from src.client import OpenProjectClient  # noqa: E402
 from src.tools.work_packages import (  # noqa: E402
-    CreateWorkPackageInput,
-    UpdateWorkPackageInput,
     create_work_package,
     update_work_package,
 )
@@ -69,18 +67,15 @@ def _client_update_payload(data):
     return captured.get("payload", {})
 
 
-def test_model_accepts_custom_fields():
-    print("\n[1] Models accept optional custom_fields")
+def test_tools_expose_custom_fields_param():
+    print("\n[1] create/update tools expose an optional custom_fields parameter")
     try:
-        c = CreateWorkPackageInput(
-            project_id=1,
-            subject="x",
-            type_id=1,
-            custom_fields={TEXT_CF: "ACME", LIST_CF: {"href": LIST_HREF}},
-        )
-        assert c.custom_fields[TEXT_CF] == "ACME"
-        u = UpdateWorkPackageInput(work_package_id=7)
-        assert u.custom_fields is None
+        import inspect
+
+        for tool in (create_work_package, update_work_package):
+            sig = inspect.signature(tool.fn)
+            assert "custom_fields" in sig.parameters, tool.name
+            assert sig.parameters["custom_fields"].default is None, tool.name
         print("OK PASSED")
         return True
     except Exception as e:
@@ -148,19 +143,15 @@ def test_tool_forwards_custom_fields():
 
             asyncio.run(
                 create_work_package.fn(
-                    CreateWorkPackageInput(
-                        project_id=1,
-                        subject="x",
-                        type_id=1,
-                        custom_fields={TEXT_CF: "ACME"},
-                    )
+                    project_id=1,
+                    subject="x",
+                    type_id=1,
+                    custom_fields={TEXT_CF: "ACME"},
                 )
             )
             asyncio.run(
                 update_work_package.fn(
-                    UpdateWorkPackageInput(
-                        work_package_id=7, custom_fields={LIST_CF: {"href": LIST_HREF}}
-                    )
+                    work_package_id=7, custom_fields={LIST_CF: {"href": LIST_HREF}}
                 )
             )
         assert captured["create"].get(TEXT_CF) == "ACME", captured["create"]
@@ -179,7 +170,7 @@ def run_all_tests():
     print("Work-package custom fields - UNIT TEST SUITE")
     print("=" * 70)
     results = [
-        test_model_accepts_custom_fields(),
+        test_tools_expose_custom_fields_param(),
         test_client_maps_custom_fields(),
         test_no_custom_fields_is_clean(),
         test_tool_forwards_custom_fields(),
